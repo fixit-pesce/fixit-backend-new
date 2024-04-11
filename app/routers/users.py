@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 
-from .. import utils,oauth2
-from ..schemas import users
+from .. import utils
+from ..schemas import users, services
 
 from pymongo import MongoClient
 from typing import List
 from ..database import get_db
+
+from datetime import datetime, UTC
 
 router = APIRouter(
     prefix = "/users",
@@ -24,7 +25,6 @@ def get_user(username: str, db: MongoClient = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
-
 
 
 @router.post("/", status_code = status.HTTP_201_CREATED)
@@ -63,6 +63,29 @@ def update_user(username: str, user: users.UserUpdate, db: MongoClient = Depends
     if db_user["username"] != username:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists for another user")
 
-    user = db["users"].update_one({"username": username}, {"$set": user.dict()})
+    user = db["users"].update_one({"username": username}, {"$set": user.model_dump()})
 
     return {"message": "User updated"}
+
+
+@router.post("/{username}/book-service")
+def user_book_service(username: str, service: str, db: MongoClient = Depends(get_db)):
+    service_db = db["services"].find_one({"name": service})
+
+    if not service_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service}")
+
+
+@router.get("/{username}/reviews", response_model=List[users.ReviewOut])
+def user_get_reviews(username: str, service: str | None = None, start_date: str | None = None, end_date: str | None = None,db: MongoClient = Depends(get_db)):
+    user = db["users"].find_one({"username": username})
+    print(user["reviews"])
+    return user["reviews"]
+
+
+@router.post("/{username}/reviews")
+def user_write_review(username: str, review: users.Review, db: MongoClient = Depends(get_db)):
+    review = review.__dict__
+    review["created_at"] = datetime.now(UTC)
+    db["users"].update_one({"username": username}, {"$push": {"reviews": review.__dict__}})
+    return {"message": "Review inserted sucessfully"}

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List
-from pymongo import MongoClient
+from datetime import datetime
 
 
 class ReviewBase(BaseModel):
@@ -10,8 +10,8 @@ class ReviewBase(BaseModel):
 
     
 class ReviewOut(ReviewBase):
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime | None = None
 
 class FAQ(BaseModel):
     question: str
@@ -29,6 +29,5 @@ class ServiceBase(BaseModel):
     total_bookings: int | None = 0
 
 
-class ServiceOut(ServiceBase):
-    _id: str
-    reviews: List[ReviewOut] | None = None
+class ServicesUpdate(ServiceBase):
+    pass

@@ -20,3 +20,13 @@ class UserUpdate(BaseModel):
 class UserUpdatePassowrd(BaseModel):
     current_password: str
     new_password: str
+
+
+class Review(BaseModel):
+    rating: float
+    description: str
+
+
+class ReviewOut(Review):
+    created_at: str | None = None
+    updated_at: str | None = None
