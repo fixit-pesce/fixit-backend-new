@@ -38,6 +38,38 @@ def get_faqs_by_service(
     return faqs
 
 
+@router.post("/{sp_username}/services/{service_name}/faqs")
+def create_faq(
+    sp_username: str, service_name: str, FAQ: FAQ, db: MongoClient = Depends(get_db)
+):
+    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+    if not service_provider:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ServiceProvider '{sp_username}' not found",
+        )
+
+    services = service_provider.get("services", [])
+    matching_service = None
+    for service in services:
+        if service.get("name") == service_name:
+            matching_service = service
+            break
+
+    if not matching_service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
+        )
+
+    db["serviceProviders"].update_one(
+        {"username": sp_username, "services.name": service_name},
+        {"$push": {"services.$.faqs": FAQ.model_dump()}},
+    )
+
+    return {"message": "FAQ created successfully"}
+
+
 @router.delete("/{sp_username}/services/{service_name}/faqs/{faq_question}")
 def delete_faq_by_question(
     sp_username: str,
@@ -47,7 +79,14 @@ def delete_faq_by_question(
 ):
     result = db["serviceProviders"].update_one(
         {"username": sp_username, "services.name": service_name},
-        {"$pull": {"services.$.faqs": {"question": faq_question}}},
+        {
+            "$pull": {
+                "services.$.faqs": {
+                    "question": faq_question,
+                    "answer": {"$exists": True},
+                }
+            }
+        },
     )
 
     if result.modified_count == 0:

@@ -6,8 +6,10 @@ class ServiceProviderBase(BaseModel):
     username: str
     company_name: str
 
+
 class ServiceProviderCreate(ServiceProviderBase):
     password: str
+
 
 class ServiceProviderOut(ServiceProviderBase):
     _id: str
@@ -16,4 +18,3 @@ class ServiceProviderOut(ServiceProviderBase):
 class ServiceProviderUpdate(ServiceProviderBase):
     email: EmailStr | None
     company_name: str | None
-    

@@ -7,7 +7,7 @@ from typing import List
 router = APIRouter(prefix="/service-providers", tags=["Services"])
 
 
-@router.get("/services", response_model=List[services.ServiceBase])
+@router.get("/services", response_model=List[services.ServiceOut])
 def get_all_services(db: MongoClient = Depends(get_db)):
     services = []
 
@@ -39,7 +39,7 @@ def get_all_services(db: MongoClient = Depends(get_db)):
     return services
 
 
-@router.get("/{sp_username}/services", response_model=List[services.ServiceBase])
+@router.get("/{sp_username}/services", response_model=List[services.ServiceOut])
 def get_services_of_service_provider(
     sp_username: str, db: MongoClient = Depends(get_db)
 ):
@@ -57,7 +57,7 @@ def get_services_of_service_provider(
 
     services = []
 
-    for service in db_sp["services"]:
+    for service in db_sp.get("services", []):
         reviews = service.get("reviews", [])
         total_reviews = len(reviews)
         total_rating = sum(review.get("rating", 0) for review in reviews)
@@ -81,7 +81,7 @@ def get_services_of_service_provider(
 
 
 @router.get(
-    "/{sp_username}/services/{service_name}", response_model=services.ServiceBase
+    "/{sp_username}/services/{service_name}", response_model=services.ServiceOut
 )
 def get_service(sp_username: str, service_name: str, db: MongoClient = Depends(get_db)):
     service_provider = db["serviceProviders"].find_one({"username": sp_username})
@@ -127,31 +127,77 @@ def get_service(sp_username: str, service_name: str, db: MongoClient = Depends(g
 
 @router.post("/{sp_username}/services")
 def create_service(
-    sp_username: str, service: services.ServiceBase, db: MongoClient = Depends(get_db)
+    sp_username: str, service: services.Service, db: MongoClient = Depends(get_db)
 ):
-    if db["serviceProviders"].find_one({"name": service.name}):
+
+    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+
+    if not service_provider:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="Service already exists"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ServiceProvider '{sp_username}' not found",
         )
 
-    service = db["services"].insert_one(service.__dict__)
+    service_data = service.__dict__
+    service_data["avg_rating"] = 0
+    service_data["total_reviews"] = 0
+    service_data["total_bookings"] = 0
+
+    db["serviceProviders"].update_one(
+        {"username": sp_username}, {"$push": {"services": service_data}}
+    )
 
     return {"message": "Service created"}
 
 
-@router.patch("/{sp_username}/services/{service_name}")
+@router.put("/{sp_username}/services/{service_name}")
 def update_service(
     sp_username: str,
     service_name: str,
-    service: services.ServicesUpdate,
+    serviceIn: services.ServicesUpdate,
     db: MongoClient = Depends(get_db),
 ):
-    if not db["services"].find_one({"id": id}):
+    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+
+    if not service_provider:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Service not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ServiceProvider '{sp_username}' not found",
         )
 
-    service = db["services"].update_one({"id": id}, {"$set": service.dict()})
+    index = None
+    for i, service in enumerate(service_provider["services"]):
+        if service.get("name") == service_name:
+            index = i
+            break
+
+    if index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service with ID '{service_name}' not found",
+        )
+
+    update_fields = {
+        key: value for key, value in serviceIn.dict().items() if value is not None
+    }
+
+    update_query = {
+        "$set": {
+            f"services.$[elem].{key}": value for key, value in update_fields.items()
+        },
+    }
+
+    db["serviceProviders"].update_one(
+        {"username": sp_username},
+        update_query,
+        array_filters=[{"elem.name": service_name}],
+    )
+
+    if db.modified_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service with name '{service_name}' not found",
+        )
 
     return {"message": "Service updated"}
 
@@ -160,11 +206,11 @@ def update_service(
 def delete_service(
     sp_username: str, service_name: str, db: MongoClient = Depends(get_db)
 ):
-    service = db["serviceProviders"].delete_one(
-        {"sp_username": sp_username}, {"services.name": service_name}
+    service = db["serviceProviders"].update_one(
+        {"username": sp_username}, {"$pull": {"services": {"name": service_name}}}
     )
 
-    if service.deleted_count == 0:
+    if service.modified_count == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Service not found"
         )
