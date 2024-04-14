@@ -25,7 +25,6 @@ def search_service(search_term: str, db: MongoClient = Depends(get_db)):
     }
 
     results = db["serviceProviders"].find(query)
-    projection = {"services.name": 1, "services.category": 1}
 
     output = []
     for result in results:
@@ -33,6 +32,7 @@ def search_service(search_term: str, db: MongoClient = Depends(get_db)):
         for service in services:
             name = service.get("name", "")
             category = service.get("category", "")
-            output.append([name, category])
+            sp_username = result.get("username")
+            output.append([name, category, sp_username])
 
     return output
