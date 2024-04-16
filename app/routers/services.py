@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from ..database import get_db
+from datetime import datetime, UTC
 from pymongo import MongoClient
 from ..schemas import services
 from typing import List
@@ -28,7 +29,8 @@ def get_all_services(db: MongoClient = Depends(get_db)):
                 "description": service["description"],
                 "price": service["price"],
                 "category": service["category"],
-                "serviceProvider": service_provider["company_name"],
+                "serviceProvider": service_provider["username"],
+                "spCompanyName": service_provider["company_name"],
                 "avg_rating": avg_rating,
                 "total_reviews": total_reviews,
                 "total_bookings": total_bookings,
@@ -69,7 +71,8 @@ def get_services_of_service_provider(
             "description": service["description"],
             "price": service["price"],
             "category": service["category"],
-            "serviceProvider": db_sp["company_name"],
+            "serviceProvider": sp_username,
+            "spCompanyName": db_sp["company_name"],
             "avg_rating": avg_rating,
             "total_reviews": total_reviews,
             "total_bookings": total_bookings,
@@ -117,6 +120,7 @@ def get_service(sp_username: str, service_name: str, db: MongoClient = Depends(g
         "price": matching_service["price"],
         "category": matching_service["category"],
         "serviceProvider": sp_username,
+        "spCompanyName": service_provider["company_name"],
         "avg_rating": avg_rating,
         "total_reviews": total_reviews,
         "total_bookings": total_bookings,
@@ -216,3 +220,65 @@ def delete_service(
         )
 
     return {"message": "Service deleted"}
+
+
+@router.post("/{sp_username}/services/{service_name}/bookings", status_code=status.HTTP_201_CREATED)
+def book_service(sp_username: str, service_name: str, booking: services.BookServiceIn, db: MongoClient = Depends(get_db)):
+    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+
+    if not service_provider:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ServiceProvider '{sp_username}' not found",
+        )
+    
+    services = service_provider.get("services", [])
+    matching_service = None
+    for service in services:
+        if service.get("name") == service_name:
+            matching_service = service
+            break
+
+    if not matching_service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
+        )
+    
+
+    new_booking = booking.model_dump()
+    new_booking["booked_at"] = datetime.now(UTC)
+
+    db["serviceProviders"].update_one(
+        {"username": sp_username, "services.name": service_name},
+        {"$push": {"services.$.bookings": new_booking, "services.$.users_booked": sp_username}},
+    )
+
+    return {"message": "Service booked successfully"}
+
+
+@router.get("/{sp_username}/services/{service_name}/bookings", response_model=List[services.BookService])
+def get_service_bookings(sp_username: str, service_name: str, db: MongoClient = Depends(get_db)):
+    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+
+    if not service_provider:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ServiceProvider '{sp_username}' not found",
+        )
+    
+    services = service_provider.get("services", [])
+    matching_service = None
+    for service in services:
+        if service.get("name") == service_name:
+            matching_service = service
+            break
+
+    if not matching_service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
+        )
+
+    bookings = matching_service.get("bookings", [])
+    return bookings

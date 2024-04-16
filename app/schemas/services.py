@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 class ReviewBase(BaseModel):
@@ -28,6 +28,7 @@ class Service(BaseModel):
 
 class ServiceOut(Service):
     serviceProvider: str
+    spCompanyName: str
     avg_rating: float
     total_reviews: int
     total_bookings: int
@@ -35,3 +36,16 @@ class ServiceOut(Service):
 
 class ServicesUpdate(Service):
     pass
+
+
+class BookServiceIn(BaseModel):
+    service_name: str
+    company_name: str
+    category: str
+    price: int
+    username: str
+    phone_no: str
+
+
+class BookService(BookServiceIn):
+    booked_at: datetime
