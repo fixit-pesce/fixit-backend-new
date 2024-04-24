@@ -254,6 +254,11 @@ def book_service(sp_username: str, service_name: str, booking: services.BookServ
         {"$push": {"services.$.bookings": new_booking, "services.$.users_booked": sp_username}},
     )
 
+    db["users"].update_one(
+        {"username": sp_username},
+        {"$push": {"bookings": new_booking}},
+    )
+
     return {"message": "Service booked successfully"}
 
 

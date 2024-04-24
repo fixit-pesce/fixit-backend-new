@@ -94,6 +94,7 @@ def insert_user_reviews(db: MongoClient):
             for review in reviews:
                 username = review["username"]
                 del review["username"]
+                review["service_name"] = row["name"]
 
                 filter_query = {"username": username}
 

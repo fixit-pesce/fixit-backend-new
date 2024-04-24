@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
 
 
 class User(BaseModel):
@@ -28,5 +29,11 @@ class Review(BaseModel):
 
 
 class ReviewOut(Review):
-    created_at: str | None = None
-    updated_at: str | None = None
+    service_name: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class ChangePassword(BaseModel):
+    current_password: str
+    new_password: str

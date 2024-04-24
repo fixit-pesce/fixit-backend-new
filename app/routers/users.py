@@ -68,18 +68,19 @@ def update_user(username: str, user: users.UserUpdate, db: MongoClient = Depends
     return {"message": "User updated"}
 
 
-@router.post("/{username}/book-service")
-def user_book_service(username: str, service: str, db: MongoClient = Depends(get_db)):
-    service_db = db["services"].find_one({"name": service})
-
-    if not service_db:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Service {service}")
+@router.post("/{username}/booked-services")
+def get_user_services(username: str, db: MongoClient = Depends(get_db)):
+    user = db["users"].find_one({"username": username})
+    
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    return user.get("bookings", [])
 
 
 @router.get("/{username}/reviews", response_model=List[users.ReviewOut])
-def user_get_reviews(username: str, service: str | None = None, start_date: str | None = None, end_date: str | None = None,db: MongoClient = Depends(get_db)):
+def user_get_reviews(username: str, db: MongoClient = Depends(get_db)):
     user = db["users"].find_one({"username": username})
-    print(user["reviews"])
     return user["reviews"]
 
 
