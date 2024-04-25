@@ -10,6 +10,7 @@ class ReviewBase(BaseModel):
 
 
 class ReviewOut(ReviewBase):
+    company_name: str
     created_at: datetime
     updated_at: datetime | None = None
 
@@ -45,7 +46,10 @@ class BookServiceIn(BaseModel):
     price: int
     username: str
     phone_no: str
+    payment_method: dict
 
 
 class BookService(BookServiceIn):
+    status: str
     booked_at: datetime
+    completed_at: datetime | None

@@ -248,6 +248,8 @@ def book_service(sp_username: str, service_name: str, booking: services.BookServ
 
     new_booking = booking.model_dump()
     new_booking["booked_at"] = datetime.now(UTC)
+    new_booking["completed_at"] = None
+    new_booking["status"] = "PENDING"
 
     db["serviceProviders"].update_one(
         {"username": sp_username, "services.name": service_name},
@@ -255,7 +257,7 @@ def book_service(sp_username: str, service_name: str, booking: services.BookServ
     )
 
     db["users"].update_one(
-        {"username": sp_username},
+        {"username": new_booking["username"]},
         {"$push": {"bookings": new_booking}},
     )
 

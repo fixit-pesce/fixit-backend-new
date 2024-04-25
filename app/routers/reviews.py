@@ -37,6 +37,9 @@ def get_reviews_of_service(sp_username: str, service_name: str, db: MongoClient 
     
     reviews = matching_service.get("reviews", [])
 
+    for review in reviews:
+        review["company_name"] = service_provider["company_name"]
+
     return reviews
 
 

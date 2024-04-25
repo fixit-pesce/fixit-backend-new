@@ -68,7 +68,7 @@ def update_user(username: str, user: users.UserUpdate, db: MongoClient = Depends
     return {"message": "User updated"}
 
 
-@router.post("/{username}/booked-services")
+@router.get("/{username}/booked-services", response_model=List[services.BookService])
 def get_user_services(username: str, db: MongoClient = Depends(get_db)):
     user = db["users"].find_one({"username": username})
     

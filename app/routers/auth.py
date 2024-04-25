@@ -34,14 +34,33 @@ def login_user(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Mong
     return {'access_token':access_token,'token_type':'bearer'}
 
 
-@router.post("/change-password/{username}", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/change-password/{username}", status_code=status.HTTP_200_OK)
 def change_password(username: str, changePassword: users.ChangePassword, db: MongoClient = Depends(get_db)):
-    user = db["users"].find_one({"username": username})
+    if username.startswith("sp-"):
+        user = db["serviceProviders"].find_one({"username": username})
+    
+    elif username.startswith("a-"):
+        user = db["admins"].find_one({"username": username})
+    
+    else:
+        user = db["users"].find_one({"username": username})
+    
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
     if not utils.verify(changePassword.current_password, user["password"]):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password")
     
-    user = db["users"].update_one({"username": username}, {"$set": {"password": utils.hash(changePassword.new_password)}})
+    if changePassword.new_password == changePassword.current_password:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="New password cannot be the same as current password")
+    
+    if username.startswith("sp-"):
+        db["serviceProviders"].update_one({"username": username}, {"$set": {"password": utils.hash(changePassword.new_password)}})
+
+    elif username.startswith("a-"):
+        db["admins"].update_one({"username": username}, {"$set": {"password": utils.hash(changePassword.new_password)}})
+    
+    else:
+        db["users"].update_one({"username": username}, {"$set": {"password": utils.hash(changePassword.new_password)}})
+    
     return {"message": "Password changed"}
