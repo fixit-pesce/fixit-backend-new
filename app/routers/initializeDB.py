@@ -131,6 +131,12 @@ def insert_services(db: MongoClient):
             service_data["reviews"] = parse_review(row["reviews"])
             service_data["users_booked"] = row["users_booked"].split(", ")
             service_data["faqs"] = parse_FAQs(row["faqs"])
+            service_data["location"] = {
+                "locality": row["locality"],
+                "city": row["city"]
+            }
+            del service_data["locality"]
+            del service_data["city"]
 
             filter_query = {"username": f"sp-{row['serviceProvider']}"}
 

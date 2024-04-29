@@ -4,6 +4,7 @@ from datetime import datetime, UTC
 from pymongo import MongoClient
 from ..schemas import services
 from typing import List
+import shortuuid
 
 router = APIRouter(prefix="/service-providers", tags=["Services"])
 
@@ -34,6 +35,7 @@ def get_all_services(db: MongoClient = Depends(get_db)):
                 "avg_rating": avg_rating,
                 "total_reviews": total_reviews,
                 "total_bookings": total_bookings,
+                "location": service["location"],
             }
 
             services.append(service_data)
@@ -73,6 +75,7 @@ def get_services_of_service_provider(
             "category": service["category"],
             "serviceProvider": sp_username,
             "spCompanyName": db_sp["company_name"],
+            "location": service["location"],
             "avg_rating": avg_rating,
             "total_reviews": total_reviews,
             "total_bookings": total_bookings,
@@ -121,6 +124,7 @@ def get_service(sp_username: str, service_name: str, db: MongoClient = Depends(g
         "category": matching_service["category"],
         "serviceProvider": sp_username,
         "spCompanyName": service_provider["company_name"],
+        "location": matching_service["location"],
         "avg_rating": avg_rating,
         "total_reviews": total_reviews,
         "total_bookings": total_bookings,
@@ -250,6 +254,7 @@ def book_service(sp_username: str, service_name: str, booking: services.BookServ
     new_booking["booked_at"] = datetime.now(UTC)
     new_booking["completed_at"] = None
     new_booking["status"] = "PENDING"
+    new_booking["booking_id"] = shortuuid.uuid()
 
     db["serviceProviders"].update_one(
         {"username": sp_username, "services.name": service_name},
@@ -289,3 +294,89 @@ def get_service_bookings(sp_username: str, service_name: str, db: MongoClient = 
 
     bookings = matching_service.get("bookings", [])
     return bookings
+
+@router.post("/{sp_username}/services/{service_name}/bookings/{booking_id}/approve")
+def approve_service_booking(sp_username: str, service_name: str, booking_id: str, db: MongoClient = Depends(get_db)):
+    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+
+    if not service_provider:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ServiceProvider '{sp_username}' not found",
+        )
+    
+    services = service_provider.get("services", [])
+    matching_service = None
+    for service in services:
+        if service.get("name") == service_name:
+            matching_service = service
+            break
+
+    if not matching_service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
+        )
+
+    matching_booking = None
+
+    for booking in matching_service.get("bookings", []):
+        if booking.get("booking_id") == booking_id:
+            matching_booking = booking
+            break
+
+    if not matching_booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Booking '{booking_id}' not found for service '{service_name}'",
+        )
+
+    matching_booking["status"] = "APPROVED"
+
+    db["serviceProviders"].update_one(
+        {"username": sp_username, "services.name": service_name, "services.bookings.booking_id": booking_id},
+        {"$set": {"services.bookings.$": matching_booking}},
+    )
+
+
+@router.post("/{sp_username}/services/{service_name}/bookings/{booking_id}/complete")
+def complete_service_booking(sp_username: str, service_name: str, booking_id: str, db: MongoClient = Depends(get_db)):
+    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+
+    if not service_provider:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ServiceProvider '{sp_username}' not found",
+        )
+    
+    services = service_provider.get("services", [])
+    matching_service = None
+    for service in services:
+        if service.get("name") == service_name:
+            matching_service = service
+            break
+
+    if not matching_service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
+        )
+
+    matching_booking = None
+
+    for booking in matching_service.get("bookings", []):
+        if booking.get("booking_id") == booking_id:
+            matching_booking = booking
+            break
+
+    if not matching_booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Booking '{booking_id}' not found for service '{service_name}'",
+        )
+
+    db["serviceProviders"].update_one(
+        {"username": sp_username, "services.name": service_name},
+        {"$set": {"services.$.bookings.$[booking].completed_at": datetime.now(UTC), "services.$.bookings.$[booking].status": "COMPLETED"}},
+        array_filters=[{"booking.booking_id": booking_id}],
+    )       

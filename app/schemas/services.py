@@ -20,11 +20,16 @@ class FAQ(BaseModel):
     answer: str
 
 
+class Location (BaseModel):
+    locality: str
+    city: str
+
 class Service(BaseModel):
     name: str
     description: str
     price: float
     category: str
+    location: Location
 
 
 class ServiceOut(Service):
@@ -50,6 +55,7 @@ class BookServiceIn(BaseModel):
 
 
 class BookService(BookServiceIn):
+    booking_id: int
     status: str
     booked_at: datetime
     completed_at: datetime | None
