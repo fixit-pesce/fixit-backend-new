@@ -17,7 +17,7 @@ router = APIRouter(
 
 def insert_admin(db: MongoClient):
     admin_data = {
-        "username": settings.admin_username,
+        "username": "a-" + settings.admin_username,
         "password": utils.hash(settings.admin_password),
         "email": settings.admin_email
     }
