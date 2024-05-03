@@ -1,6 +1,5 @@
 from pydantic import BaseModel
-from typing import List
-from datetime import datetime, UTC
+from datetime import datetime
 
 
 class ReviewBase(BaseModel):
@@ -55,7 +54,7 @@ class BookServiceIn(BaseModel):
 
 
 class BookService(BookServiceIn):
-    booking_id: int
+    booking_id: str
     status: str
     booked_at: datetime
     completed_at: datetime | None

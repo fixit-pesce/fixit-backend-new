@@ -75,7 +75,8 @@ def get_user_services(username: str, db: MongoClient = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
-    return user.get("bookings", [])
+    bookings = db["bookings"].find({"username": username})
+    return bookings
 
 
 @router.get("/{username}/reviews", response_model=List[users.ReviewOut])
