@@ -291,8 +291,8 @@ def approve_service_booking(booking_id: str, db: MongoClient = Depends(get_db)):
     return {"message": "Booking approved"}
 
 
-@router.post("/{sp_username}/services/{service_name}/bookings/{booking_id}/complete")
-def complete_service_booking(sp_username: str, service_name: str, booking_id: str, db: MongoClient = Depends(get_db)):
+@router.post("/bookings/{booking_id}/complete")
+def complete_service_booking(booking_id: str, db: MongoClient = Depends(get_db)):
     booking = db["bookings"].find_one({"booking_id": booking_id})
 
     if not booking:
@@ -306,3 +306,20 @@ def complete_service_booking(sp_username: str, service_name: str, booking_id: st
     )    
 
     return {"message": "Booking completed"}
+
+
+@router.post("/bookings/{booking_id}/cancel")
+def cancel_service_booking(booking_id: str, db: MongoClient = Depends(get_db)):
+    booking = db["bookings"].find_one({"booking_id": booking_id})
+
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Booking with ID '{booking_id}' not found",
+        )
+
+    db["bookings"].update_one(
+        {"booking_id": booking_id}, {"$set": {"status": "CANCELLED"}}
+    )
+
+    return {"message": "Booking cancelled"}
