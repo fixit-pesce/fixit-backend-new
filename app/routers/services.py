@@ -223,6 +223,7 @@ def delete_service(
             status_code=status.HTTP_404_NOT_FOUND, detail="Service not found"
         )
 
+    
     return {"message": "Service deleted"}
 
 
@@ -248,135 +249,60 @@ def book_service(sp_username: str, service_name: str, booking: services.BookServ
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
         )
-    
 
     new_booking = booking.model_dump()
     new_booking["booked_at"] = datetime.now(UTC)
     new_booking["completed_at"] = None
     new_booking["status"] = "PENDING"
     new_booking["booking_id"] = shortuuid.uuid()
+    new_booking["sp_username"] = sp_username
 
-    db["serviceProviders"].update_one(
-        {"username": sp_username, "services.name": service_name},
-        {"$push": {"services.$.bookings": new_booking, "services.$.users_booked": sp_username}},
-    )
-
-    db["users"].update_one(
-        {"username": new_booking["username"]},
-        {"$push": {"bookings": new_booking}},
-    )
+    db["bookings"].insert_one(new_booking)
 
     return {"message": "Service booked successfully"}
 
 
 @router.get("/{sp_username}/services/{service_name}/bookings", response_model=List[services.BookService])
 def get_service_bookings(sp_username: str, service_name: str, db: MongoClient = Depends(get_db)):
-    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+    bookings = db["bookings"].find({"sp_username": sp_username, "service_name": service_name})
 
-    if not service_provider:
+    if not bookings:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ServiceProvider '{sp_username}' not found",
-        )
-    
-    services = service_provider.get("services", [])
-    matching_service = None
-    for service in services:
-        if service.get("name") == service_name:
-            matching_service = service
-            break
-
-    if not matching_service:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
+            detail=f"No bookings found for serviceProvider '{sp_username}'",
         )
 
-    bookings = matching_service.get("bookings", [])
     return bookings
 
-@router.post("/{sp_username}/services/{service_name}/bookings/{booking_id}/approve")
-def approve_service_booking(sp_username: str, service_name: str, booking_id: str, db: MongoClient = Depends(get_db)):
-    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+@router.post("/bookings/{booking_id}/approve")
+def approve_service_booking(booking_id: str, db: MongoClient = Depends(get_db)):
+    booking = db["bookings"].find_one({"booking_id": booking_id})
 
-    if not service_provider:
+    if not booking:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ServiceProvider '{sp_username}' not found",
-        )
-    
-    services = service_provider.get("services", [])
-    matching_service = None
-    for service in services:
-        if service.get("name") == service_name:
-            matching_service = service
-            break
-
-    if not matching_service:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
+            detail=f"Booking with ID '{booking_id}' not found",
         )
 
-    matching_booking = None
-
-    for booking in matching_service.get("bookings", []):
-        if booking.get("booking_id") == booking_id:
-            matching_booking = booking
-            break
-
-    if not matching_booking:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Booking '{booking_id}' not found for service '{service_name}'",
-        )
-
-    matching_booking["status"] = "APPROVED"
-
-    db["serviceProviders"].update_one(
-        {"username": sp_username, "services.name": service_name, "services.bookings.booking_id": booking_id},
-        {"$set": {"services.bookings.$": matching_booking}},
+    db["bookings"].update_one(
+        {"booking_id": booking_id}, {"$set": {"status": "APPROVED"}}
     )
+
+    return {"message": "Booking approved"}
 
 
 @router.post("/{sp_username}/services/{service_name}/bookings/{booking_id}/complete")
 def complete_service_booking(sp_username: str, service_name: str, booking_id: str, db: MongoClient = Depends(get_db)):
-    service_provider = db["serviceProviders"].find_one({"username": sp_username})
+    booking = db["bookings"].find_one({"booking_id": booking_id})
 
-    if not service_provider:
+    if not booking:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ServiceProvider '{sp_username}' not found",
-        )
-    
-    services = service_provider.get("services", [])
-    matching_service = None
-    for service in services:
-        if service.get("name") == service_name:
-            matching_service = service
-            break
-
-    if not matching_service:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Service '{service_name}' not found for serviceProvider '{sp_username}'",
+            detail=f"Booking with ID '{booking_id}' not found",
         )
 
-    matching_booking = None
+    db["bookings"].update_one(
+        {"booking_id": booking_id}, {"$set": {"status": "COMPLETED", "completed_at": datetime.now(UTC)}}
+    )    
 
-    for booking in matching_service.get("bookings", []):
-        if booking.get("booking_id") == booking_id:
-            matching_booking = booking
-            break
-
-    if not matching_booking:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Booking '{booking_id}' not found for service '{service_name}'",
-        )
-
-    db["serviceProviders"].update_one(
-        {"username": sp_username, "services.name": service_name},
-        {"$set": {"services.$.bookings.$[booking].completed_at": datetime.now(UTC), "services.$.bookings.$[booking].status": "COMPLETED"}},
-        array_filters=[{"booking.booking_id": booking_id}],
-    )       
+    return {"message": "Booking completed"}
