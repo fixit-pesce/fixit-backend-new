@@ -82,7 +82,7 @@ def get_user_services(username: str, db: MongoClient = Depends(get_db)):
 @router.get("/{username}/reviews", response_model=List[users.ReviewOut])
 def user_get_reviews(username: str, db: MongoClient = Depends(get_db)):
     user = db["users"].find_one({"username": username})
-    return user["reviews"]
+    return user.get("reviews", [])
 
 
 @router.post("/{username}/reviews")
