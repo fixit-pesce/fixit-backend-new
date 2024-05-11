@@ -15,6 +15,6 @@ class ServiceProviderOut(ServiceProviderBase):
     _id: str
 
 
-class ServiceProviderUpdate(ServiceProviderBase):
-    email: EmailStr | None
-    company_name: str | None
+class ServiceProviderUpdate(BaseModel):
+    email: EmailStr
+    company_name: str

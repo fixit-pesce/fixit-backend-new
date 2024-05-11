@@ -70,7 +70,7 @@ def delete_service_provider(username: str, db: MongoClient = Depends(get_db)):
     return {"message": "Service Provider deleted"}
 
 
-@router.patch("/{username}", status_code=status.HTTP_200_OK)
+@router.put("/{username}", status_code=status.HTTP_200_OK)
 def update_service_provider(
     username: str,
     serviceProvider: serviceProviders.ServiceProviderUpdate,
