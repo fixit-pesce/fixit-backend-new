@@ -147,6 +147,14 @@ def create_service(
         )
 
     service_data = service.__dict__
+    service_data["name"] = service.name
+    service_data["description"] = service.description
+    service_data["price"] = service.price
+    service_data["category"] = service.category
+    service_data["location"] = {
+        "locality": service.location.locality,
+        "city": service.location.city,
+    }
     service_data["avg_rating"] = 0
     service_data["total_reviews"] = 0
     service_data["total_bookings"] = 0
