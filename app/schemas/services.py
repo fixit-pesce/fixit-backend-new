@@ -43,6 +43,10 @@ class ServicesUpdate(Service):
     pass
 
 
+class PaymentMethod(BaseModel):
+    type: str
+    card_no: str | None = None
+
 class BookServiceIn(BaseModel):
     service_name: str
     company_name: str
@@ -50,7 +54,7 @@ class BookServiceIn(BaseModel):
     price: int
     username: str
     phone_no: str
-    payment_method: dict
+    payment_method: PaymentMethod
 
 
 class BookService(BookServiceIn):
