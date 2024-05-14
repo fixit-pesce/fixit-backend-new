@@ -115,7 +115,8 @@ def get_service(sp_username: str, service_name: str, db: MongoClient = Depends(g
     total_reviews = len(reviews)
     total_rating = sum(review.get("rating", 0) for review in reviews)
     avg_rating = total_rating / total_reviews if total_reviews > 0 else 0
-    total_bookings = len(matching_service.get("users_booked", []))
+    bookings = db["bookings"].find({"service_provider": sp_username, "service_name": service_name})
+    total_bookings = bookings.count()
 
     service_data = {
         "name": matching_service["name"],
@@ -209,7 +210,7 @@ def update_service(
         array_filters=[{"elem.name": service_name}],
     )
 
-    if db.modified_count == 0:
+    if db["serviceProviders"].count_documents({"username": sp_username}) == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Service with name '{service_name}' not found",

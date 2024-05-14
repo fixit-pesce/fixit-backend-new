@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+import shortuuid
 from ..database import get_db
 from .. import utils
 from pymongo import MongoClient
@@ -6,7 +7,9 @@ from app.database import get_db
 from app.config import settings
 import csv
 from typing import List, Dict
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
+import random
+
 
 
 router = APIRouter(
@@ -129,7 +132,6 @@ def insert_services(db: MongoClient):
             del service_data["serviceProvider"]
             service_data["price"] = int(row["price"])
             service_data["reviews"] = parse_review(row["reviews"])
-            service_data["users_booked"] = row["users_booked"].split(", ")
             service_data["faqs"] = parse_FAQs(row["faqs"])
             service_data["location"] = {
                 "locality": row["locality"],
@@ -149,6 +151,40 @@ def insert_services(db: MongoClient):
             db["serviceProviders"].update_one(filter_query, update_operation)
 
 
+def generate_phone_number():
+    first_digit = random.choice([8, 9])
+    rest_digits = [random.randint(0, 9) for _ in range(9)]
+    return f"{first_digit}{''.join(map(str, rest_digits))}"
+
+def insert_bookings(db: MongoClient):
+    with open('extras/services.csv', newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        for row in reader:
+            users_booked = row["users_booked"].split(", ")
+            
+            for user in users_booked:
+                booking_data = {
+                    "service_name": row["name"],
+                    "company_name": row["company_name"],
+                    "category": row["category"],
+                    "price": int(row["price"]),
+                    "username": user,
+                    "phone_no": "9988001121",
+                    "payment_method": {
+                        "type": "Cash On Delivery",
+                        "card_no": None
+                    },
+                    "sp_username": f"sp-{row['serviceProvider']}",
+                    "booking_id": shortuuid.uuid(),
+                    "status": "COMPLETED",
+                    "booked_at": datetime.now(UTC) - timedelta(days=1),
+                    "completed_at": datetime.now(UTC)
+                }
+
+                db["bookings"].insert_one(booking_data)
+
+
 @router.get("/")
 def initializeDB(db: MongoClient = Depends(get_db)):
     client = MongoClient(f"{settings.mongo_url}")
@@ -159,5 +195,6 @@ def initializeDB(db: MongoClient = Depends(get_db)):
     insert_service_providers(db)
     insert_categories(db)
     insert_services(db)
+    insert_bookings(db)
 
     return {"message": "DB initialized"}

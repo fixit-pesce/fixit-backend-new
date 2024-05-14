@@ -97,7 +97,7 @@ def create_review(sp_username: str, service_name: str, review: ReviewBase, db: M
     user_review["sp_username"] = sp_username
 
     db["users"].update_one(
-        {"username": sp_username},
+        {"username": new_review["username"]},
         {"$push": {"reviews": user_review}},
     )
 
