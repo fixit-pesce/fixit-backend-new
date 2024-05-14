@@ -115,8 +115,8 @@ def get_service(sp_username: str, service_name: str, db: MongoClient = Depends(g
     total_reviews = len(reviews)
     total_rating = sum(review.get("rating", 0) for review in reviews)
     avg_rating = total_rating / total_reviews if total_reviews > 0 else 0
-    bookings = db["bookings"].find({"service_provider": sp_username, "service_name": service_name})
-    total_bookings = bookings.count()
+    bookings = db["bookings"].find({"sp_username": sp_username, "service_name": service_name})
+    total_bookings = len(list(bookings))
 
     service_data = {
         "name": matching_service["name"],
