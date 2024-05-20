@@ -46,6 +46,7 @@ class ServicesUpdate(Service):
 class PaymentMethod(BaseModel):
     type: str
     card_no: str | None = None
+    status: str
 
 class BookServiceIn(BaseModel):
     service_name: str

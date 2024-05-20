@@ -332,3 +332,21 @@ def cancel_service_booking(booking_id: str, db: MongoClient = Depends(get_db)):
     )
 
     return {"message": "Booking cancelled"}
+
+
+@router.post("/bookings/{booking_id}/payment")
+def complete_booking_payment(booking_id: str, payment_method: services.PaymentMethod, db: MongoClient = Depends(get_db)):
+    booking = db["bookings"].find_one({"booking_id": booking_id})
+
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Booking with ID '{booking_id}' not found",
+        )
+
+    db["bookings"].update_one(
+        {"booking_id": booking_id}, {"$set": {
+            "payment_method.type": booking.get("payment_method").get("type") + " - " + payment_method.type,
+            "payment_method.status": "PAID"
+            }}
+    )

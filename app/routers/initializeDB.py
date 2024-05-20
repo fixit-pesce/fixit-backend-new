@@ -173,7 +173,8 @@ def insert_bookings(db: MongoClient):
                     "phone_no": "9988001121",
                     "payment_method": {
                         "type": "Cash On Delivery",
-                        "card_no": None
+                        "card_no": None,
+                        "status": "PAID"
                     },
                     "sp_username": f"sp-{row['serviceProvider']}",
                     "booking_id": shortuuid.uuid(),
